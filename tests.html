@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>TDD Harness</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-zinc-900 text-zinc-100 p-8 font-mono">
+    <h1 class="text-2xl mb-4 border-b border-zinc-700 pb-2">Test Results</h1>
+    <ul id="results" class="space-y-2 text-sm"></ul>
+
+    <script type="module">
+        import * as Logic from './js/logic.js';
+
+        const results = document.getElementById('results');
+
+        function assert(desc, condition) {
+            const li = document.createElement('li');
+            if (condition) {
+                li.innerHTML = `<span class="text-green-400">[PASS]</span> ${desc}`;
+            } else {
+                li.innerHTML = `<span class="text-red-500 font-bold">[FAIL]</span> ${desc}`;
+                console.error("FAIL:", desc);
+            }
+            results.appendChild(li);
+        }
+
+        async function runTests() {
+            // 1. Unit Conversion
+            assert("C to F: 0°C is 32°F", Logic.celsiusToFahrenheit(0) === 32);
+            assert("C to F: 100°C is 212°F", Logic.celsiusToFahrenheit(100) === 212);
+            assert("C to F: -40°C is -40°F", Logic.celsiusToFahrenheit(-40) === -40);
+
+            // 2. Weather Icons
+            assert("Icon: Code 0 is Sun", Logic.getWeatherIcon(0) === 'ph-sun');
+            assert("Icon: Code 61 is Rain", Logic.getWeatherIcon(61) === 'ph-cloud-rain');
+            assert("Icon: Code 95 is Lightning", Logic.getWeatherIcon(95) === 'ph-cloud-lightning');
+            assert("Icon: Code 999 (Invalid) is Question", Logic.getWeatherIcon(999) === 'ph-question');
+
+            // 3. Warmth Score
+            // Base: 22C = 0 score. 
+            // 10C => (22-10)/3.5 = 3.42
+            const score10C = Logic.calculateWarmthScore(10, 0, 0);
+            assert("Score: 10°C is approx 3.4", Math.abs(score10C - 3.42) < 0.1);
+            
+            // Wind Penalty: 10C + 30kmh wind (+2 score) => ~5.4
+            const scoreWind = Logic.calculateWarmthScore(10, 30, 0);
+            assert("Score: Wind adds penalty", scoreWind > score10C + 1.5);
+
+            // 4. Verdicts
+            const hot = Logic.getClothingVerdict(Logic.calculateWarmthScore(30, 0, 0), 0, 0);
+            assert("Verdict: 30°C is Shorts", hot.main.includes("Shorts"));
+
+            const cold = Logic.getClothingVerdict(Logic.calculateWarmthScore(0, 0, 0), 0, 0);
+            assert("Verdict: 0°C is Heavy Coat", cold.main.includes("Heavy Winter Coat") || cold.main.includes("Coat"));
+
+            // 5. Timezones
+            // Test "London" time for a UTC date
+            const testDate = "2023-10-27T12:00:00Z"; 
+            // In London (BST was active? No, Oct 27 is tricky, let's use Winter)
+            // Jan 1st 12:00 UTC -> London is 12:00.
+            const dateWinter = "2024-01-01T12:00:00Z";
+            const londonTime = Logic.formatLocalTime(dateWinter, "Europe/London");
+            assert("Timezone: London Winter matches UTC", londonTime === "12:00");
+            
+            // New York (-5)
+            const nyTime = Logic.formatLocalTime(dateWinter, "America/New_York");
+            // 12:00 UTC - 5 = 07:00
+            assert("Timezone: NY is 07:00", nyTime === "07:00");
+            
+            // India (+5:30)
+            const indiaTime = Logic.formatLocalTime(dateWinter, "Asia/Kolkata");
+            // 12:00 + 5:30 = 17:30
+            assert("Timezone: India is 17:30", indiaTime === "17:30");
+        }
+
+        runTests();
+    </script>
+</body>
+</html>

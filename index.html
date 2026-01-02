@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather for Wear</title>
+    
+    <!-- Tailwind CSS (Lightweight, via CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Phosphor Icons (Aesthetic, via CDN) -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Fonts: Inter & JetBrains Mono for that 'Terminal' look -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-zinc-950 text-zinc-50 antialiased min-h-screen flex items-center justify-center p-4">
+
+    <!-- Main Container -->
+    <main class="w-full max-w-md space-y-8">
+        
+        <!-- Header / Location -->
+        <header class="flex justify-between items-end border-b border-zinc-800 pb-4">
+            <div class="relative group">
+                <h1 class="font-mono text-sm text-zinc-500 uppercase tracking-widest">
+                    Location <span id="geo-source" class="text-[10px] bg-zinc-800 text-zinc-400 px-1 rounded ml-1">...</span>
+                </h1>
+                
+                <!-- Click to Edit Location -->
+                <div id="location-display" class="text-2xl font-bold mt-1 flex items-center gap-2 cursor-pointer hover:text-zinc-300 transition-colors" title="Click to change">
+                    <span>Loading...</span>
+                    <i class="ph ph-pencil-simple text-sm text-zinc-600"></i>
+                </div>
+
+                <!-- Manual Search Input (Hidden by default) -->
+                <form id="search-form" class="hidden absolute top-6 left-0 w-64 bg-zinc-950 border border-zinc-700 p-1 rounded flex gap-1 z-10 shadow-xl flex-wrap">
+                    <div class="flex w-full gap-1">
+                        <input id="search-input" type="text" placeholder="City name..." class="bg-zinc-900 text-white px-2 py-1 text-sm flex-1 outline-none font-mono" autocomplete="off">
+                        <button type="submit" class="bg-zinc-800 hover:bg-zinc-700 px-2 rounded text-zinc-300">
+                            <i class="ph ph-magnifying-glass"></i>
+                        </button>
+                        <button type="button" id="search-cancel" class="text-zinc-500 hover:text-red-400 px-1">
+                            <i class="ph ph-x"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- Explicit "Locate Me" Button -->
+                    <div id="use-gps-btn" class="w-full bg-zinc-900 border-t border-zinc-800 p-2 hover:bg-zinc-800 cursor-pointer text-sm text-zinc-400 flex items-center gap-2 transition-colors">
+                        <i class="ph ph-crosshair"></i>
+                        <span>Use Current Location</span>
+                    </div>
+
+                    <!-- Autocomplete Dropdown -->
+                    <ul id="suggestions-list" class="w-full bg-zinc-900 border-t border-zinc-800 hidden max-h-40 overflow-y-auto">
+                        <!-- Items injected by JS -->
+                    </ul>
+                </form>
+            </div>
+            <div class="flex items-center gap-2">
+                <!-- Unit Toggle -->
+                <button id="unit-toggle" class="text-xs font-mono bg-zinc-900 border border-zinc-800 px-2 py-1 rounded text-zinc-400 hover:text-white transition-colors">
+                    °C
+                </button>
+                <button id="refresh-btn" class="hover:text-zinc-300 transition-colors" aria-label="Refresh Weather">
+                    <i class="ph ph-arrows-clockwise text-xl"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- The "Decision" (Primary USP) -->
+        <section class="space-y-4">
+            <h2 class="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-2">Right Now</h2>
+            <div id="clothing-recommendation" class="text-4xl font-bold leading-tight font-mono">
+                Computing outfit...
+            </div>
+            <div id="accessories-recommendation" class="text-lg text-zinc-400">
+                <!-- e.g. "Take an umbrella." -->
+            </div>
+        </section>
+
+        <!-- The "Day Planner" (Secondary USP) -->
+        <section class="space-y-2">
+            <h2 class="font-mono text-xs text-zinc-500 uppercase tracking-widest">Outfit Timeline</h2>
+            <div id="timeline-display" class="flex gap-4 overflow-x-auto pb-2 scrollbar-hide text-sm">
+                <!-- Javascript will inject: [Now: T-shirt] -> [8PM: Hoodie] -> [Tomorrow: Coat] -->
+                <div class="shrink-0 bg-zinc-900 border border-zinc-800 p-3 rounded w-32 animate-pulse">
+                    <div class="h-4 bg-zinc-800 rounded w-1/2 mb-2"></div>
+                    <div class="h-3 bg-zinc-800 rounded w-3/4"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Raw Data (Secondary) -->
+        <section class="grid grid-cols-2 gap-4 pt-8">
+            <div class="bg-zinc-900/50 p-4 rounded border border-zinc-800">
+                <div class="text-zinc-500 text-xs font-mono uppercase">Temp</div>
+                <div id="temp-display" class="text-2xl font-mono mt-1">--°C</div>
+            </div>
+            <div class="bg-zinc-900/50 p-4 rounded border border-zinc-800">
+                <div class="text-zinc-500 text-xs font-mono uppercase">Feels Like</div>
+                <div id="feels-like-display" class="text-2xl font-mono mt-1">--°C</div>
+            </div>
+            <div class="bg-zinc-900/50 p-4 rounded border border-zinc-800">
+                <div class="text-zinc-500 text-xs font-mono uppercase">Wind</div>
+                <div id="wind-display" class="text-2xl font-mono mt-1">-- km/h</div>
+            </div>
+            <div class="bg-zinc-900/50 p-4 rounded border border-zinc-800">
+                <div class="text-zinc-500 text-xs font-mono uppercase">Rain Chance</div>
+                <div id="rain-display" class="text-2xl font-mono mt-1">--%</div>
+            </div>
+        </section>
+
+        <!-- Footer / Status -->
+        <footer class="pt-12 text-center">
+            <p id="status-msg" class="text-xs text-zinc-600 font-mono">Waiting for GPS...</p>
+        </footer>
+
+    </main>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>

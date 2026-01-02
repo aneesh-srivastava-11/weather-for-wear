@@ -1,0 +1,33 @@
+:root {
+    --font-sans: 'Inter', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+}
+
+body {
+    font-family: var(--font-sans);
+}
+
+/* Typography Overrides for that "Dev" feel */
+.font-mono {
+    font-family: var(--font-mono);
+}
+
+/* Custom Scrollbar (WebKit) - strictly aesthetic */
+::-webkit-scrollbar {
+    width: 8px;
+}
+::-webkit-scrollbar-track {
+    background: #09090b; 
+}
+::-webkit-scrollbar-thumb {
+    background: #27272a; 
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #3f3f46; 
+}
+
+/* Utility to hide elements cleanly */
+.hidden {
+    display: none !important;
+}
