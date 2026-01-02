@@ -4,124 +4,120 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Weather for Wear</title>
-    
-    <!-- Tailwind CSS (Lightweight, via CDN) -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Phosphor Icons (Aesthetic, via CDN) -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    
-    <!-- Custom Styles -->
     <link rel="stylesheet" href="style.css">
-
-    <!-- Fonts: Inter & JetBrains Mono for that 'Terminal' look -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 </head>
-<body class="bg-zinc-950 text-zinc-50 antialiased min-h-screen flex items-center justify-center p-4">
+<body class="bg-night-clear text-white antialiased min-h-screen flex items-center justify-center p-4 transition-colors duration-700">
 
     <!-- Main Container -->
-    <main class="w-full max-w-md space-y-8">
+    <main class="w-full max-w-md space-y-6">
         
-        <!-- Header / Location -->
-        <header class="flex justify-between items-end border-b border-zinc-800 pb-4">
-            <div class="relative group">
-                <h1 class="font-mono text-sm text-zinc-500 uppercase tracking-widest">
-                    Location <span id="geo-source" class="text-[10px] bg-zinc-800 text-zinc-400 px-1 rounded ml-1">...</span>
-                </h1>
-                
-                <!-- Click to Edit Location -->
-                <div id="location-display" class="text-2xl font-bold mt-1 flex items-center gap-2 cursor-pointer hover:text-zinc-300 transition-colors" title="Click to change">
+        <!-- Header -->
+        <header class="flex justify-between items-start pb-2">
+            <div class="relative group z-50">
+                <div id="location-display" class="text-3xl font-bold flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity drop-shadow-md" title="Click to change">
                     <span>Loading...</span>
-                    <i class="ph ph-pencil-simple text-sm text-zinc-600"></i>
+                    <i class="ph ph-caret-down text-lg opacity-70"></i>
+                </div>
+                <div class="text-[10px] font-mono opacity-60 uppercase tracking-widest mt-1">
+                    Via <span id="geo-source">...</span>
                 </div>
 
-                <!-- Manual Search Input (Hidden by default) -->
-                <form id="search-form" class="hidden absolute top-6 left-0 w-64 bg-zinc-950 border border-zinc-700 p-1 rounded flex gap-1 z-10 shadow-xl flex-wrap">
-                    <div class="flex w-full gap-1">
-                        <input id="search-input" type="text" placeholder="City name..." class="bg-zinc-900 text-white px-2 py-1 text-sm flex-1 outline-none font-mono" autocomplete="off">
-                        <button type="submit" class="bg-zinc-800 hover:bg-zinc-700 px-2 rounded text-zinc-300">
-                            <i class="ph ph-magnifying-glass"></i>
-                        </button>
-                        <button type="button" id="search-cancel" class="text-zinc-500 hover:text-red-400 px-1">
-                            <i class="ph ph-x"></i>
-                        </button>
+                <!-- Search Form -->
+                <form id="search-form" class="hidden absolute top-12 left-0 w-72 search-dropdown border border-white/10 p-2 rounded-xl shadow-2xl flex flex-col gap-2">
+                    <div class="flex gap-2">
+                        <input id="search-input" type="text" placeholder="Search city..." class="bg-white/10 text-white px-3 py-2 text-sm flex-1 rounded-lg outline-none font-mono placeholder-white/30 focus:bg-white/20 transition-colors" autocomplete="off">
+                        <button type="button" id="search-cancel" class="text-white/50 hover:text-white px-2"><i class="ph ph-x"></i></button>
                     </div>
-                    
-                    <!-- Explicit "Locate Me" Button -->
-                    <div id="use-gps-btn" class="w-full bg-zinc-900 border-t border-zinc-800 p-2 hover:bg-zinc-800 cursor-pointer text-sm text-zinc-400 flex items-center gap-2 transition-colors">
-                        <i class="ph ph-crosshair"></i>
-                        <span>Use Current Location</span>
+                    <div id="use-gps-btn" class="p-2 hover:bg-white/10 rounded-lg cursor-pointer text-xs text-blue-300 flex items-center gap-2 transition-colors font-mono">
+                        <i class="ph ph-crosshair"></i> Use Current Location
                     </div>
-
-                    <!-- Autocomplete Dropdown -->
-                    <ul id="suggestions-list" class="w-full bg-zinc-900 border-t border-zinc-800 hidden max-h-40 overflow-y-auto">
-                        <!-- Items injected by JS -->
-                    </ul>
+                    <ul id="suggestions-list" class="hidden max-h-48 overflow-y-auto border-t border-white/10 pt-2 space-y-1"></ul>
                 </form>
             </div>
-            <div class="flex items-center gap-2">
-                <!-- Unit Toggle -->
-                <button id="unit-toggle" class="text-xs font-mono bg-zinc-900 border border-zinc-800 px-2 py-1 rounded text-zinc-400 hover:text-white transition-colors">
+
+            <!-- Toggles -->
+            <div class="flex gap-2">
+                <button id="activity-toggle" class="glass-panel px-3 py-1.5 rounded-full text-xs font-medium hover:bg-white/20 transition-all flex items-center gap-1.5 backdrop-blur-md">
+                    <i class="ph ph-pedestrian text-lg"></i>
+                </button>
+                <button id="unit-toggle" class="glass-panel px-3 py-1.5 rounded-full text-xs font-mono font-bold hover:bg-white/20 transition-all backdrop-blur-md">
                     °C
                 </button>
-                <button id="refresh-btn" class="hover:text-zinc-300 transition-colors" aria-label="Refresh Weather">
-                    <i class="ph ph-arrows-clockwise text-xl"></i>
+                <button id="refresh-btn" class="glass-panel p-1.5 rounded-full hover:bg-white/20 transition-all backdrop-blur-md">
+                    <i class="ph ph-arrows-clockwise text-lg"></i>
                 </button>
             </div>
         </header>
 
-        <!-- The "Decision" (Primary USP) -->
-        <section class="space-y-4">
-            <h2 class="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-2">Right Now</h2>
-            <div id="clothing-recommendation" class="text-4xl font-bold leading-tight font-mono">
-                Computing outfit...
+        <!-- SKELETON LOADER (Visible when loading) -->
+        <div id="loader-skeleton" class="space-y-6 hidden">
+            <div class="space-y-3">
+                <div class="skeleton h-12 w-3/4 rounded-lg"></div>
+                <div class="skeleton h-6 w-1/2 rounded-lg"></div>
             </div>
-            <div id="accessories-recommendation" class="text-lg text-zinc-400">
-                <!-- e.g. "Take an umbrella." -->
+            <div class="grid grid-cols-4 gap-2">
+                <div class="skeleton h-20 rounded-xl"></div>
+                <div class="skeleton h-20 rounded-xl"></div>
+                <div class="skeleton h-20 rounded-xl"></div>
+                <div class="skeleton h-20 rounded-xl"></div>
             </div>
-        </section>
+        </div>
 
-        <!-- The "Day Planner" (Secondary USP) -->
-        <section class="space-y-2">
-            <h2 class="font-mono text-xs text-zinc-500 uppercase tracking-widest">Outfit Timeline</h2>
-            <div id="timeline-display" class="flex gap-4 overflow-x-auto pb-2 scrollbar-hide text-sm">
-                <!-- Javascript will inject: [Now: T-shirt] -> [8PM: Hoodie] -> [Tomorrow: Coat] -->
-                <div class="shrink-0 bg-zinc-900 border border-zinc-800 p-3 rounded w-32 animate-pulse">
-                    <div class="h-4 bg-zinc-800 rounded w-1/2 mb-2"></div>
-                    <div class="h-3 bg-zinc-800 rounded w-3/4"></div>
+        <!-- LIVE CONTENT -->
+        <div id="content-area" class="space-y-6 opacity-100 transition-opacity duration-500">
+            
+            <!-- USP 1: Verdict -->
+            <section class="space-y-2">
+                <div id="clothing-recommendation" class="text-5xl font-bold leading-[1.1] drop-shadow-lg tracking-tight">
+                    <!-- "Heavy Coat" -->
                 </div>
-            </div>
-        </section>
+                <div id="accessories-recommendation" class="text-lg font-medium opacity-90 drop-shadow-md flex items-center gap-2">
+                    <!-- "Don't forget gloves" -->
+                </div>
+            </section>
 
-        <!-- Raw Data (Secondary) -->
-        <section class="grid grid-cols-2 gap-4 pt-8">
-            <div class="bg-zinc-900/50 p-4 rounded border border-zinc-800">
-                <div class="text-zinc-500 text-xs font-mono uppercase">Temp</div>
-                <div id="temp-display" class="text-2xl font-mono mt-1">--°C</div>
-            </div>
-            <div class="bg-zinc-900/50 p-4 rounded border border-zinc-800">
-                <div class="text-zinc-500 text-xs font-mono uppercase">Feels Like</div>
-                <div id="feels-like-display" class="text-2xl font-mono mt-1">--°C</div>
-            </div>
-            <div class="bg-zinc-900/50 p-4 rounded border border-zinc-800">
-                <div class="text-zinc-500 text-xs font-mono uppercase">Wind</div>
-                <div id="wind-display" class="text-2xl font-mono mt-1">-- km/h</div>
-            </div>
-            <div class="bg-zinc-900/50 p-4 rounded border border-zinc-800">
-                <div class="text-zinc-500 text-xs font-mono uppercase">Rain Chance</div>
-                <div id="rain-display" class="text-2xl font-mono mt-1">--%</div>
-            </div>
-        </section>
+            <!-- Stats Grid (Glass) -->
+            <section class="grid grid-cols-4 gap-3">
+                <div class="glass-panel p-3 rounded-2xl flex flex-col items-center justify-center text-center">
+                    <i class="ph ph-thermometer text-xl opacity-70 mb-1"></i>
+                    <div id="temp-display" class="font-bold text-lg leading-none">--</div>
+                    <div class="text-[10px] opacity-60 uppercase mt-1">Temp</div>
+                </div>
+                <div class="glass-panel p-3 rounded-2xl flex flex-col items-center justify-center text-center">
+                    <i class="ph ph-hand-palm text-xl opacity-70 mb-1"></i>
+                    <div id="feels-like-display" class="font-bold text-lg leading-none">--</div>
+                    <div class="text-[10px] opacity-60 uppercase mt-1">Feels</div>
+                </div>
+                <div class="glass-panel p-3 rounded-2xl flex flex-col items-center justify-center text-center">
+                    <i class="ph ph-wind text-xl opacity-70 mb-1"></i>
+                    <div id="wind-display" class="font-bold text-lg leading-none">--</div>
+                    <div class="text-[10px] opacity-60 uppercase mt-1">Wind</div>
+                </div>
+                <div class="glass-panel p-3 rounded-2xl flex flex-col items-center justify-center text-center">
+                    <i class="ph ph-drop text-xl opacity-70 mb-1"></i>
+                    <div id="rain-display" class="font-bold text-lg leading-none">--</div>
+                    <div class="text-[10px] opacity-60 uppercase mt-1">Rain</div>
+                </div>
+            </section>
 
-        <!-- Footer / Status -->
-        <footer class="pt-12 text-center">
-            <p id="status-msg" class="text-xs text-zinc-600 font-mono">Waiting for GPS...</p>
-        </footer>
+            <!-- USP 2: Timeline (Glass) -->
+            <section class="glass-panel p-4 rounded-3xl">
+                <h2 class="text-xs font-mono uppercase tracking-widest opacity-60 mb-3 ml-1">Forecast</h2>
+                <div id="timeline-display" class="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+                    <!-- Cards injected here -->
+                </div>
+            </section>
+
+            <!-- Footer Status -->
+            <footer class="text-center pt-4 opacity-40 text-[10px] font-mono">
+                <span id="status-msg">Ready</span>
+            </footer>
+        </div>
 
     </main>
-
     <script type="module" src="app.js"></script>
 </body>
 </html>

@@ -26,6 +26,9 @@ A minimalist, zero-maintenance weather application that focuses on **decisions**
 - **YOLO Mode / Autonomous Verification:** Do not guess about the environment. If unsure (e.g., "Do they have Python?"), *run the check command* (`python --version`) immediately. You have permission to execute read-only checks without asking.
 - **Context Awareness:** Monitor the token budget but prioritize Grounded Truth over brevity.
 - **Documentation Duty:** Maintain `overview.md`. Whenever architecture or logic changes significantly, update this file. It serves as a high-level educational map for the user.
+- **Vision Recipe:** To see the user's latest screenshot, run this:
+  `Copy-Item (Get-ChildItem "C:\Users\Ankit\Pictures\Screenshots" | Sort-Object CreationTime -Descending | Select-Object -First 1).FullName -Destination "debug_screenshot.png"`
+  Then `read_file("debug_screenshot.png")` -> `Remove-Item "debug_screenshot.png"`.
 
 ## Current State
 - [x] Project Initialized
@@ -35,4 +38,6 @@ A minimalist, zero-maintenance weather application that focuses on **decisions**
 - [x] Fix: Display City Name instead of Coordinates
 - [x] Feature: Manual Location Search
 - [x] Feature: Outfit Timeline
+- [x] Polish: Glassmorphism & Skeletons
+- [x] Feature: Activity & Sunglasses Logic
 

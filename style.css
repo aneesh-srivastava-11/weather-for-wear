@@ -5,29 +5,51 @@
 
 body {
     font-family: var(--font-sans);
+    transition: background 1s ease;
 }
 
-/* Typography Overrides for that "Dev" feel */
-.font-mono {
-    font-family: var(--font-mono);
+.font-mono { font-family: var(--font-mono); }
+
+/* Custom Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.4); }
+
+.hidden { display: none !important; }
+
+/* --- New Design Elements --- */
+
+/* 1. Dynamic Backgrounds */
+.bg-day-clear { background: linear-gradient(to bottom, #3b82f6, #60a5fa); } /* Blue Sky */
+.bg-day-cloud { background: linear-gradient(to bottom, #64748b, #94a3b8); } /* Grayish Blue */
+.bg-night-clear { background: linear-gradient(to bottom, #0f172a, #1e293b); } /* Deep Blue */
+.bg-night-cloud { background: linear-gradient(to bottom, #18181b, #27272a); } /* Dark Gray */
+.bg-rain { background: linear-gradient(to bottom, #334155, #475569); } /* Wet Slate */
+
+/* 2. Glass Cards */
+.glass-panel {
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* Custom Scrollbar (WebKit) - strictly aesthetic */
-::-webkit-scrollbar {
-    width: 8px;
-}
-::-webkit-scrollbar-track {
-    background: #09090b; 
-}
-::-webkit-scrollbar-thumb {
-    background: #27272a; 
+/* 3. Skeleton Animation */
+.skeleton {
+    background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
     border-radius: 4px;
 }
-::-webkit-scrollbar-thumb:hover {
-    background: #3f3f46; 
+
+@keyframes loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
 }
 
-/* Utility to hide elements cleanly */
-.hidden {
-    display: none !important;
+/* 4. Search Dropdown Polish */
+.search-dropdown {
+    background: rgba(24, 24, 27, 0.95);
+    backdrop-filter: blur(8px);
 }
