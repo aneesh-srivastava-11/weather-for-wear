@@ -50,7 +50,8 @@ const ui = {
     refreshBtn: document.getElementById('refresh-btn'),
     offlineBadge: document.getElementById('offline-badge'),
     tipsContainer: document.getElementById('tips-container'),
-    tipsList: document.getElementById('tips-list')
+    tipsList: document.getElementById('tips-list'),
+    localTime: document.getElementById('local-time-display')
 };
 
 const STORAGE_KEY = 'weather_app_loc';
@@ -128,8 +129,8 @@ function formatTemp(celsius) {
 // nowIdx = the index in hourly.time that corresponds to the current hour.
 // Passed in from render() to avoid re-deriving it.
 function updateTimelineUI(hourly, nowIdx) {
-    // Show the next 24 hours at 3-hour intervals (8 cards)
-    const offsets = [3, 6, 9, 12, 15, 18, 21, 24];
+    // Show every hour for the next 24 hours (24 cards starting from the next hour)
+    const offsets = Array.from({ length: 24 }, (_, i) => i + 1);
     let html = '';
     
     offsets.forEach(offset => {
@@ -229,6 +230,10 @@ function render() {
     }
 
     updateTimelineUI(data.hourly, nowIdx);
+
+    // Target local time update
+    const targetLocalTime = Logic.formatLocalTime(new Date().toISOString(), state.timezone);
+    ui.localTime.innerText = `Local Time: ${targetLocalTime}`;
 
     ui.temp.innerText = formatTemp(current.temperature_2m);
     ui.feelsLike.innerText = formatTemp(current.apparent_temperature);

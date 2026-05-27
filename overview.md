@@ -33,7 +33,7 @@ The application is now split into Controller and Library:
 - **Persistence & Caching**: Remembers your location and caches the weather data. If the user is offline or the weather API fails, the app renders the cached weather data and displays a clear offline status message (e.g. `Offline (Cached: 14:32)`).
 - **Offline Badge Indicator**: When rendering from cached data, a prominent red `Offline` status badge is displayed next to the location display.
 - **Contextual Advice & Tips**: Dynamic suggestions based on current weather parameters (heat alerts with 35°C+ hydration warnings, cold spell layers under 10°C, UV/sunscreen warnings, wind alerts, and AQI pollution notifications).
-- **Timezone Aware**: Timeline shows the *local* time of the target city (e.g., viewing Tokyo from NY shows Tokyo time).
+- **Timezone Aware**: Displays the target city's current local time in the header metadata row. The 24-hour forecast timeline also renders consecutive forecast cards starting from the next hour in that city's local timezone.
 - **Unit Toggle**: Instant C/F switching.
 - **Smart Search**: Autocomplete dropdown for finding cities globally.
 - **State Separation**:
