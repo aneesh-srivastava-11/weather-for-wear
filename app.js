@@ -49,6 +49,7 @@ const ui = {
 };
 
 const STORAGE_KEY = 'weather_app_loc';
+const WEATHER_CACHE_KEY = 'weather_app_cache';
 
 function saveLocation(lat, lon, city, country, source) {
     const data = { lat, lon, city, country, source, timestamp: Date.now() };
@@ -58,6 +59,25 @@ function saveLocation(lat, lon, city, country, source) {
 function loadSavedLocation() {
     const raw = localStorage.getItem(STORAGE_KEY);
     return raw ? JSON.parse(raw) : null;
+}
+
+function saveWeatherCache(weatherData, timezone) {
+    const cache = {
+        weatherData,
+        timezone,
+        timestamp: Date.now()
+    };
+    localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify(cache));
+}
+
+function loadWeatherCache() {
+    const raw = localStorage.getItem(WEATHER_CACHE_KEY);
+    if (!raw) return null;
+    try {
+        return JSON.parse(raw);
+    } catch (e) {
+        return null;
+    }
 }
 
 // --- Logic Helpers ---
@@ -206,13 +226,25 @@ async function fetchWeather(lat, lon, sourceLabel, cityName = null, country = nu
         state.weatherData = data;
         state.timezone = data.timezone;
         
+        saveWeatherCache(data, data.timezone);
+        
         render();
         ui.status.innerText = `Updated: ${new Date().toLocaleTimeString()}`;
         setLoading(false);
         
     } catch (error) {
-        console.error(error);
-        ui.status.innerText = "Error.";
+        console.error("Fetch weather failed, attempting cache fallback:", error);
+        
+        const cache = loadWeatherCache();
+        if (cache && cache.weatherData) {
+            state.weatherData = cache.weatherData;
+            state.timezone = cache.timezone;
+            render();
+            const timeStr = new Date(cache.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            ui.status.innerText = `Offline (Cached: ${timeStr})`;
+        } else {
+            ui.status.innerText = "Offline. No cached data.";
+        }
         setLoading(false);
     }
 }
@@ -257,39 +289,78 @@ async function init(forceLocate = false) {
     if (!forceLocate) {
         const saved = loadSavedLocation();
         if (saved) {
-            fetchWeather(saved.lat, saved.lon, saved.source, saved.city, saved.country);
+            await fetchWeather(saved.lat, saved.lon, saved.source, saved.city, saved.country);
             return;
         }
     }
     
     setLoading(true);
     ui.status.innerText = "Locating...";
+    
+    // 1. Try GPS location
     try {
         const pos = await getBrowserLocation();
         const { latitude: lat, longitude: lon } = pos.coords;
-        fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`)
-            .then(r => r.json())
-            .then(d => {
-                const city = d.city || d.locality;
-                fetchWeather(lat, lon, "GPS", city, d.countryCode);
-                saveLocation(lat, lon, city, d.countryCode, "GPS");
-            });
-    } catch (e) {
+        
+        let city = null;
+        let countryCode = null;
         try {
-            const ip = await (await fetch('https://ipapi.co/json/')).json();
-            fetchWeather(ip.latitude, ip.longitude, "IP", ip.city, ip.country_code);
-            saveLocation(ip.latitude, ip.longitude, ip.city, ip.country_code, "IP");
-        } catch (err) {
-            fetchWeather(CONFIG.defaultLat, CONFIG.defaultLon, "Default", "London", "GB");
+            // Try to reverse geocode, but don't fail the whole GPS flow if reverse-geo fails
+            const response = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`);
+            if (response.ok) {
+                const d = await response.json();
+                city = d.city || d.locality;
+                countryCode = d.countryCode;
+            }
+        } catch (geoErr) {
+            console.warn("Reverse geocoding failed, using coordinates only:", geoErr);
         }
+        
+        await fetchWeather(lat, lon, "GPS", city, countryCode);
+        saveLocation(lat, lon, city, countryCode, "GPS");
+        return;
+    } catch (gpsError) {
+        console.log("GPS Location failed or denied, trying IP fallback...", gpsError);
+    }
+    
+    // 2. Try IP Geolocation
+    try {
+        const response = await fetch('https://ipapi.co/json/');
+        if (!response.ok) {
+            throw new Error(`IP Geo API returned status ${response.status}`);
+        }
+        const ip = await response.json();
+        if (ip.error || !ip.latitude || !ip.longitude) {
+            throw new Error(ip.reason || "Invalid IP location data returned");
+        }
+        
+        await fetchWeather(ip.latitude, ip.longitude, "IP", ip.city, ip.country_code);
+        saveLocation(ip.latitude, ip.longitude, ip.city, ip.country_code, "IP");
+        return;
+    } catch (ipError) {
+        console.log("IP Geolocation failed, falling back to default...", ipError);
+    }
+    
+    // 3. Fallback to Default (London)
+    try {
+        await fetchWeather(CONFIG.defaultLat, CONFIG.defaultLon, "Default", "London", "GB");
+        saveLocation(CONFIG.defaultLat, CONFIG.defaultLon, "London", "GB", "Default");
+    } catch (defaultError) {
+        console.error("All fallback strategies failed:", defaultError);
+        ui.status.innerText = "Error loading weather.";
+        setLoading(false);
     }
 }
 
 function getBrowserLocation() {
     return new Promise((resolve, reject) => {
-        if (!navigator.geolocation) reject();
-        const t = setTimeout(() => reject(), 10000);
-        navigator.geolocation.getCurrentPosition(p => { clearTimeout(t); resolve(p); }, e => { clearTimeout(t); reject(e); }, { timeout: 10000 });
+        if (!navigator.geolocation) reject(new Error("Geolocation not supported"));
+        const t = setTimeout(() => reject(new Error("Geolocation timeout")), 10000);
+        navigator.geolocation.getCurrentPosition(
+            p => { clearTimeout(t); resolve(p); }, 
+            e => { clearTimeout(t); reject(e); }, 
+            { timeout: 10000 }
+        );
     });
 }
 

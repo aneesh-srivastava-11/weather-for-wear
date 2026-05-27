@@ -26,27 +26,26 @@ The application is now split into Controller and Library:
     - Manages **Global State** (`units`, `timezone`, `weatherData`).
     - Handles DOM updates (`render()`) and API calls.
     - **Initialization**:
-        - Checks Cache -> Tries GPS -> Tries IP -> Defaults to London.
+        - Checks Cache -> Tries GPS (with reverse-geocoding) -> Tries IP Geolocation -> Defaults to London.
+        - Robust fallback chain: If any geolocation fetch or API fails, it transitions smoothly to the next option without blocking the page loader.
 
 ### 3. Key Features
-- **Persistence**: Remembers your city.
+- **Persistence & Caching**: Remembers your location and caches the weather data. If the user is offline or the weather API fails, the app renders the cached weather data and displays a clear offline status message (e.g. `Offline (Cached: 14:32)`).
 - **Timezone Aware**: Timeline shows the *local* time of the target city (e.g., viewing Tokyo from NY shows Tokyo time).
 - **Unit Toggle**: Instant C/F switching.
-- **Smart Search**: Autocomplete for global cities.
-- **State Separation**: explicit "Refresh" vs "Re-Locate" actions.
-
-### 3. Key Features
-- **Persistence**: Remembers your city across reloads using `localStorage`.
 - **Smart Search**: Autocomplete dropdown for finding cities globally.
-- **Timeline**: `generateTimeline` forecasts clothing needs for the next 12 hours (e.g., "8 PM: Hoodie").
 - **State Separation**:
     - **Refresh Icon**: Updates *weather data* only (keeps your city).
-    - **Use Current Location**: Explicitly wipes cache and retries GPS/IP geolocation.
+    - **Use Current Location**: Explicitly wipes location cache and retries GPS/IP geolocation.
 
 ## Technical Decisions & Rationalizations
 
 - **No Build Step**: We use standard ES Modules (`<script type="module">`). This requires a local server (CORS policy) but ensures the code is future-proof and editable without `npm install`.
 - **CDN Dependencies**: We trade offline-capability for simplicity. The app requires internet to fetch weather anyway, so loading CSS/Icons from the web is an acceptable trade-off for keeping the repo small.
+- **Robust Geolocation & Caching Strategy**:
+    1. **Awaited Fallback Chain**: Geolocation is resolved sequentially (`Browser GPS` $\rightarrow$ `IP API` $\rightarrow$ `Default Coordinates`). Each step is properly `await`-ed, ensuring errors flow to the next step.
+    2. **Adblocker / Tracker Resiliency**: Privacy extensions block IP geolocation endpoints (`ipapi.co`) and reverse-geocoders (`bigdatacloud.net`). The fallback chain treats failed fetch requests and invalid payloads as silent catch signals to transition to the default coordinates (London).
+    3. **Offline Caching**: In addition to saving the last location, successful weather payloads and timezones are cached in `localStorage`. If the browser loses network connection or the weather API fails, the application restores the last successfully loaded weather data and notifies the user with a status indicator (e.g. `Offline (Cached: 20:30)`).
 - **Robust Error Handling**: The app assumes APIs *will* fail. Every `fetch` is wrapped in `try/catch` with UI updates to inform the user (e.g., "Offline?").
 
 ## Directory Structure
