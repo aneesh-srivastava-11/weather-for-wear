@@ -4,6 +4,7 @@ import * as Logic from './js/logic.js';
 const CONFIG = {
     apiBase: 'https://api.open-meteo.com/v1/forecast',
     geoBase: 'https://geocoding-api.open-meteo.com/v1/search',
+    aqiBase: 'https://air-quality-api.open-meteo.com/v1/air-quality',
     defaultLat: 51.5074,
     defaultLon: -0.1278
 };
@@ -17,6 +18,7 @@ let state = {
     timezone: "GMT",
     units: 'metric',
     activity: 'walking',
+    aqi: null,
     weatherData: null
 };
 
@@ -45,7 +47,10 @@ const ui = {
     wind: document.getElementById('wind-display'),
     rain: document.getElementById('rain-display'),
     status: document.getElementById('status-msg'),
-    refreshBtn: document.getElementById('refresh-btn')
+    refreshBtn: document.getElementById('refresh-btn'),
+    offlineBadge: document.getElementById('offline-badge'),
+    tipsContainer: document.getElementById('tips-container'),
+    tipsList: document.getElementById('tips-list')
 };
 
 const STORAGE_KEY = 'weather_app_loc';
@@ -61,10 +66,11 @@ function loadSavedLocation() {
     return raw ? JSON.parse(raw) : null;
 }
 
-function saveWeatherCache(weatherData, timezone) {
+function saveWeatherCache(weatherData, timezone, aqi) {
     const cache = {
         weatherData,
         timezone,
+        aqi,
         timestamp: Date.now()
     };
     localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify(cache));
@@ -119,14 +125,15 @@ function formatTemp(celsius) {
     return `${Math.round(celsius)}°C`;
 }
 
-function updateTimelineUI(hourly) {
-    const hoursToCheck = [3, 6, 9, 12];
+// nowIdx = the index in hourly.time that corresponds to the current hour.
+// Passed in from render() to avoid re-deriving it.
+function updateTimelineUI(hourly, nowIdx) {
+    // Show the next 24 hours at 3-hour intervals (8 cards)
+    const offsets = [3, 6, 9, 12, 15, 18, 21, 24];
     let html = '';
-    const now = new Date();
-    const currentHourIndex = now.getHours(); 
     
-    hoursToCheck.forEach(offset => {
-        const targetIndex = currentHourIndex + offset;
+    offsets.forEach(offset => {
+        const targetIndex = nowIdx + offset;
         if (targetIndex >= hourly.time.length) return;
 
         const timeStr = hourly.time[targetIndex];
@@ -136,7 +143,9 @@ function updateTimelineUI(hourly) {
         const wind = hourly.wind_speed_10m[targetIndex];
         const weatherCode = hourly.weather_code ? hourly.weather_code[targetIndex] : 0;
         
-        const hour = new Date(timeStr).getHours();
+        // Use JS Date to determine day/night — note: this is UTC-based,
+        // but for icon purposes (sun/moon) it's close enough.
+        const hour = new Date(timeStr + ':00Z').getUTCHours();
         const isDay = hour >= 6 && hour <= 18; 
 
         const warmScore = Logic.calculateWarmthScore(temp, wind || 0, rain, state.activity);
@@ -145,7 +154,6 @@ function updateTimelineUI(hourly) {
         let iconClass = Logic.getWeatherIcon(weatherCode);
         if (rain > 50) iconClass = 'ph-cloud-rain';
 
-        // Timeline Card Design
         html += `
             <div class="shrink-0 glass-panel p-3 rounded-2xl w-28 flex flex-col justify-between items-center text-center snap-center hover:bg-white/10 transition-colors">
                 <div class="text-[10px] font-mono opacity-60 mb-1">${hourLabel}</div>
@@ -157,6 +165,9 @@ function updateTimelineUI(hourly) {
         `;
     });
     
+    if (!html) {
+        html = '<div class="text-xs opacity-40 font-mono m-auto">No forecast data available</div>';
+    }
     ui.timeline.innerHTML = html;
 }
 
@@ -168,9 +179,18 @@ function render() {
     // Theme Update
     updateTheme(current.is_day === 1, current.weather_code);
 
-    // Data Update
-    const next6HoursRain = data.hourly.precipitation_probability.slice(0, 6);
-    const rainChance = Math.max(...next6HoursRain);
+    // Data Update — find the current hour's position in the hourly array
+    // so rainChance is calculated from NOW, not always from midnight.
+    const currentTimeStr = current.time;
+    let nowIdx = data.hourly.time.indexOf(currentTimeStr);
+    if (nowIdx === -1) {
+        const sub = currentTimeStr.substring(0, 13);
+        nowIdx = data.hourly.time.findIndex(t => t.startsWith(sub));
+    }
+    if (nowIdx === -1) nowIdx = 0;
+
+    const next6HoursRain = data.hourly.precipitation_probability.slice(nowIdx, nowIdx + 6);
+    const rainChance = next6HoursRain.length > 0 ? Math.max(...next6HoursRain) : 0;
     
     const warmScore = Logic.calculateWarmthScore(current.apparent_temperature, current.wind_speed_10m, rainChance, state.activity);
     const verdict = Logic.getClothingVerdict(warmScore, current.wind_speed_10m, rainChance, current.is_day === 1, current.cloud_cover);
@@ -178,7 +198,37 @@ function render() {
     ui.clothing.innerText = verdict.main;
     ui.accessories.innerText = verdict.sub;
 
-    updateTimelineUI(data.hourly);
+    // Weather Tips rendering
+    const tips = Logic.getWeatherTips(
+        current.temperature_2m,
+        current.wind_speed_10m,
+        rainChance,
+        current.is_day === 1,
+        current.cloud_cover,
+        state.aqi
+    );
+
+    if (tips.length > 0) {
+        ui.tipsList.innerHTML = tips.map(tip => `<li class="flex items-start gap-1.5"><span class="text-amber-400 select-none">•</span> <span>${tip}</span></li>`).join('');
+        ui.tipsContainer.classList.remove('hidden');
+        
+        if (current.temperature_2m > 35 || current.temperature_2m < 10 || (state.aqi && state.aqi > 150)) {
+            ui.tipsContainer.className = "glass-panel p-3.5 rounded-2xl border-l-4 border-red-500/80 flex items-start gap-3 transition-all duration-300";
+        } else {
+            ui.tipsContainer.className = "glass-panel p-3.5 rounded-2xl border-l-4 border-amber-400/80 flex items-start gap-3 transition-all duration-300";
+        }
+    } else {
+        ui.tipsContainer.classList.add('hidden');
+    }
+
+    // Offline Badge visibility
+    if (state.source === "Offline") {
+        ui.offlineBadge.classList.remove('hidden');
+    } else {
+        ui.offlineBadge.classList.add('hidden');
+    }
+
+    updateTimelineUI(data.hourly, nowIdx);
 
     ui.temp.innerText = formatTemp(current.temperature_2m);
     ui.feelsLike.innerText = formatTemp(current.apparent_temperature);
@@ -195,7 +245,7 @@ function render() {
         activityBtn.innerHTML = '<i class="ph ph-person-simple-run text-lg"></i>';
         activityBtn.classList.add('bg-white', 'text-black');
     } else {
-        activityBtn.innerHTML = '<i class="ph ph-pedestrian text-lg"></i>';
+        activityBtn.innerHTML = '<i class="ph ph-person-simple-walk text-lg"></i>';
         activityBtn.classList.remove('bg-white', 'text-black');
     }
 }
@@ -214,19 +264,38 @@ async function fetchWeather(lat, lon, sourceLabel, cityName = null, country = nu
     }
 
     try {
-        const url = `${CONFIG.apiBase}?latitude=${lat}&longitude=${lon}&current=temperature_2m,apparent_temperature,precipitation,rain,showers,weather_code,wind_speed_10m,is_day,cloud_cover&hourly=precipitation_probability,apparent_temperature,wind_speed_10m,weather_code&forecast_days=1&timezone=auto`;
+        const weatherUrl = `${CONFIG.apiBase}?latitude=${lat}&longitude=${lon}&current=temperature_2m,apparent_temperature,precipitation,rain,showers,weather_code,wind_speed_10m,is_day,cloud_cover&hourly=precipitation_probability,apparent_temperature,wind_speed_10m,weather_code&forecast_days=2&timezone=auto`;
+        const aqiUrl = `${CONFIG.aqiBase}?latitude=${lat}&longitude=${lon}&current=us_aqi`;
         
         // Artificial delay for skeleton demo (remove in prod if desired, but good for UX feel)
         await new Promise(r => setTimeout(r, 600)); 
         
-        const response = await fetch(url);
-        if (!response.ok) throw new Error("API Error");
+        const [weatherRes, aqiRes] = await Promise.all([
+            fetch(weatherUrl),
+            fetch(aqiUrl).catch(err => {
+                console.warn("AQI fetch failed, ignoring:", err);
+                return null;
+            })
+        ]);
         
-        const data = await response.json();
-        state.weatherData = data;
-        state.timezone = data.timezone;
+        if (!weatherRes.ok) throw new Error("API Error");
         
-        saveWeatherCache(data, data.timezone);
+        const weatherData = await weatherRes.json();
+        let aqiVal = null;
+        if (aqiRes && aqiRes.ok) {
+            try {
+                const aqiData = await aqiRes.json();
+                aqiVal = aqiData.current?.us_aqi || null;
+            } catch (e) {
+                console.warn("AQI parse failed:", e);
+            }
+        }
+        
+        state.weatherData = weatherData;
+        state.timezone = weatherData.timezone;
+        state.aqi = aqiVal;
+        
+        saveWeatherCache(weatherData, weatherData.timezone, aqiVal);
         
         render();
         ui.status.innerText = `Updated: ${new Date().toLocaleTimeString()}`;
@@ -239,6 +308,8 @@ async function fetchWeather(lat, lon, sourceLabel, cityName = null, country = nu
         if (cache && cache.weatherData) {
             state.weatherData = cache.weatherData;
             state.timezone = cache.timezone;
+            state.aqi = cache.aqi || null;
+            state.source = "Offline";
             render();
             const timeStr = new Date(cache.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             ui.status.innerText = `Offline (Cached: ${timeStr})`;
@@ -355,11 +426,11 @@ async function init(forceLocate = false) {
 function getBrowserLocation() {
     return new Promise((resolve, reject) => {
         if (!navigator.geolocation) reject(new Error("Geolocation not supported"));
-        const t = setTimeout(() => reject(new Error("Geolocation timeout")), 10000);
+        const t = setTimeout(() => reject(new Error("Geolocation timeout")), 5000);
         navigator.geolocation.getCurrentPosition(
             p => { clearTimeout(t); resolve(p); }, 
             e => { clearTimeout(t); reject(e); }, 
-            { timeout: 10000 }
+            { timeout: 5000 }
         );
     });
 }

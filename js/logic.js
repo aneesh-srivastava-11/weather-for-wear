@@ -94,3 +94,41 @@ export function formatLocalTime(isoString, timezone) {
         timeZone: timezone 
     });
 }
+
+// 6. Weather Tips (including AQI alerts)
+export function getWeatherTips(temp, windSpeed, rainProb, isDay = true, cloudCover = 0, aqi = null) {
+    const tips = [];
+
+    // Heat/Cold warnings based on Indian/Regional standards
+    if (temp > 35) {
+        tips.push("High heat alert. Stay hydrated! Drink plenty of water or electrolytes 💧");
+    } else if (temp < 10) {
+        tips.push("Cold wave conditions. Layer up appropriately ❄️");
+    }
+    
+    // UV index warning proxy (based on daytime + clear sky + warm temp)
+    if (isDay && cloudCover < 40 && temp > 28) {
+        tips.push("High UV index. Apply sunscreen (SPF 30+) 🧴");
+    }
+    
+    // Wind warnings
+    if (windSpeed > 30) {
+        tips.push("High winds. Hold onto light items & hats 💨");
+    }
+    
+    // Rain warnings
+    if (rainProb > 60) {
+        tips.push("High chance of rain. Carry an umbrella ☔");
+    }
+
+    // AQI warnings
+    if (aqi !== null && aqi !== undefined) {
+        if (aqi > 200) {
+            tips.push("Very poor air quality. Swap outdoor workouts for indoor activities 🏢");
+        } else if (aqi > 150) {
+            tips.push("Poor air quality. Consider wearing an N95 mask outdoors 😷");
+        }
+    }
+
+    return tips;
+}

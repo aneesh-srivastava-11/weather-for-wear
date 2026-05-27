@@ -85,6 +85,24 @@
             const indiaTime = Logic.formatLocalTime(dateWinter, "Asia/Kolkata");
             // 12:00 + 5:30 = 17:30
             assert("Timezone: India is 17:30", indiaTime === "17:30");
+
+            // 5. Weather Tips & AQI Alerts
+            const hotTips = Logic.getWeatherTips(37, 10, 10, true, 10, 80);
+            assert("Tips: Heat warning present above 35°C", hotTips.some(t => t.includes("hydrated")));
+            assert("Tips: Sunscreen recommended on hot sunny day", hotTips.some(t => t.includes("sunscreen")));
+
+            const chillyTips = Logic.getWeatherTips(8, 5, 0, false, 0, null);
+            assert("Tips: Chill warning present below 10°C", chillyTips.some(t => t.includes("Cold wave")));
+
+            const stormTips = Logic.getWeatherTips(25, 35, 80, true, 90, 50);
+            assert("Tips: Wind warning present", stormTips.some(t => t.includes("winds")));
+            assert("Tips: Rain warning present", stormTips.some(t => t.includes("umbrella")));
+
+            const badAqiTips = Logic.getWeatherTips(25, 10, 10, true, 50, 180);
+            assert("Tips: Mask recommended for poor AQI", badAqiTips.some(t => t.includes("mask")));
+
+            const severeAqiTips = Logic.getWeatherTips(25, 10, 10, true, 50, 220);
+            assert("Tips: Indoor advice for severe AQI", severeAqiTips.some(t => t.includes("indoor")));
         }
 
         runTests();
